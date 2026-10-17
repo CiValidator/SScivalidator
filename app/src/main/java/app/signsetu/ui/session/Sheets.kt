@@ -63,6 +63,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -139,16 +140,17 @@ fun BoardSheet(
     onFavourite: (String) -> Unit,
     onUse: (List<String>) -> Unit,
     onDismiss: () -> Unit,
+    onDraft: (List<String>) -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     // Favourites open first once the officer has starred any (FR-19).
     var category by rememberSaveable { mutableStateOf(if (favourites.isNotEmpty()) FAVOURITES else null) }
-    val chosen = remember { mutableStateListOf<String>().apply { addAll(initial) } }
+    val chosen = rememberSaveable(saver = listSaver(save = { l -> l.toList() }, restore = { l -> l.toMutableStateList() })) { initial.toMutableStateList() }
     val cards = content.cards.values.filter { c ->
         (category == null || c.category == category || (category == FAVOURITES && c.id in favourites)) &&
             (query.isBlank() || c.label.values.any { it.contains(query.trim(), ignoreCase = true) })
     }
-    OfficerSheet(onDismiss) {
+    OfficerSheet({ onDraft(chosen.toList()); onDismiss() }) {
         Column(Modifier.fillMaxHeight(0.92f).padding(horizontal = Spacing.lg)) {
             SheetTitle(stringResource(R.string.board_title))
             OutlinedTextField(
@@ -271,8 +273,7 @@ fun GestureSheet(content: ContentBundle, lang: String, onPick: (LexiconEntry, Li
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LogSheet(events: List<SessionEvent>, onAddNote: (String) -> Unit, onDismiss: () -> Unit) {
-    var note by rememberSaveable { mutableStateOf("") }
+fun LogSheet(events: List<SessionEvent>, note: String, onNote: (String) -> Unit, onAddNote: (String) -> Unit, onDismiss: () -> Unit) {
     OfficerSheet(onDismiss) {
         Column(Modifier.fillMaxHeight(0.92f).padding(horizontal = Spacing.lg).imePadding()) {
             SheetTitle(stringResource(R.string.officer_log))
@@ -293,7 +294,7 @@ fun LogSheet(events: List<SessionEvent>, onAddNote: (String) -> Unit, onDismiss:
             ) {
                 OutlinedTextField(
                     value = note,
-                    onValueChange = { note = it },
+                    onValueChange = onNote,
                     placeholder = { Text(stringResource(R.string.log_note_hint)) },
                     // SEC-05: the keyboard should not learn or suggest from what is noted about a subject.
                     keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
@@ -301,7 +302,7 @@ fun LogSheet(events: List<SessionEvent>, onAddNote: (String) -> Unit, onDismiss:
                     modifier = Modifier.weight(1f),
                 )
                 Button(
-                    onClick = { onAddNote(note); note = "" },
+                    onClick = { onAddNote(note); onNote("") },
                     enabled = note.isNotBlank(),
                     modifier = Modifier.padding(start = Spacing.sm),
                 ) { Text(stringResource(R.string.log_add)) }
@@ -421,7 +422,11 @@ fun OfficerSheet(onDismiss: () -> Unit, expanded: Boolean = true, content: @Comp
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = expanded),
         dragHandle = { Box(Modifier.sizeIn(minWidth = 48.dp), contentAlignment = Alignment.Center) { BottomSheetDefaults.DragHandle() } },
-        content = { FilterObscuredTouches(); content() },
+        content = {
+            FilterObscuredTouches()
+            TextButton(onClick = onDismiss, modifier = Modifier.padding(horizontal = Spacing.sm)) { Text(stringResource(R.string.back)) }
+            content()
+        },
     )
 }
 
@@ -503,11 +508,15 @@ fun SignedSheet(
     onDismiss: () -> Unit,
     onAsk: ((List<String>) -> Unit)? = null,
     canAsk: (List<String>) -> Boolean = { true },
+    draft: List<String>? = null,
+    onDraft: (List<String>) -> Unit = {},
 ) {
     val replay = rememberReplayState(segments)
-    val words = remember(segments) { segments.map { s -> s.word?.takeIf { it != "?" }.orEmpty() }.toMutableStateList() }
+    val words = rememberSaveable(segments, saver = listSaver(save = { l -> l.toList() }, restore = { l -> l.toMutableStateList() })) {
+        (draft?.takeIf { it.size == segments.size } ?: segments.map { s -> s.word?.takeIf { it != "?" }.orEmpty() }).toMutableStateList()
+    }
     val colors = MaterialTheme.colorScheme
-    OfficerSheet(onDismiss) {
+    OfficerSheet({ onDraft(words.toList()); onDismiss() }) {
         LazyColumn(
             Modifier.fillMaxHeight(0.92f).imePadding(),
             contentPadding = PaddingValues(start = Spacing.lg, end = Spacing.lg, bottom = Spacing.xxl),

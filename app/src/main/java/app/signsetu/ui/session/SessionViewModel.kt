@@ -8,7 +8,9 @@ import app.signsetu.data.content.LexiconEntry
 import app.signsetu.data.content.Phrase
 import app.signsetu.data.content.PhraseSlot
 import app.signsetu.data.content.Question
+import app.signsetu.data.content.SignLanguage
 import app.signsetu.data.content.SignMode
+import app.signsetu.data.content.glossToText
 import app.signsetu.data.content.pick
 import app.signsetu.data.session.EventSource
 import app.signsetu.data.session.EventType
@@ -26,6 +28,8 @@ import app.signsetu.sign.SignSegment
 import app.signsetu.pair.AnswerBody
 import app.signsetu.pair.reencodeRemotePng
 import app.signsetu.sign.SignWindow
+import app.signsetu.sign.glossOf
+import app.signsetu.sign.glossTranscript
 import app.signsetu.sign.inContext
 import app.signsetu.sign.needsSlower
 import app.signsetu.sign.signChoices
@@ -44,6 +48,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import app.signsetu.data.content.Given
+import app.signsetu.data.content.Method
+import app.signsetu.data.content.TEXT_MAX
 import app.signsetu.data.content.answerText
 import app.signsetu.data.content.reason
 import app.signsetu.export.ReportRow
@@ -111,6 +117,14 @@ private const val RUN_STEP_MS = 1_400L
 val SessionUi.juvenile: Boolean
     get() = session.profile == Profile.YOUNG_CHILD ||
         events.lastOrNull { it.type == EventType.SYSTEM && (it.text == SYSTEM_JUVENILE || it.text == SYSTEM_JUVENILE_OFF) }?.text == SYSTEM_JUVENILE
+
+/** Followed by a [SignLanguage] name: the officer set the language the session is signed in. */
+const val SYSTEM_SIGN_LANGUAGE = "sign_language:"
+
+/** The session's sign language, ISL until the officer sets another; it selects the reader and the character's signs. */
+val SessionUi.signLanguage: SignLanguage
+    get() = events.lastOrNull { it.type == EventType.SYSTEM && it.text?.startsWith(SYSTEM_SIGN_LANGUAGE) == true }
+        ?.text?.removePrefix(SYSTEM_SIGN_LANGUAGE)?.let { n -> SignLanguage.entries.firstOrNull { it.name == n } } ?: SignLanguage.ISL
 
 @Immutable
 data class SessionUi(
@@ -224,6 +238,9 @@ class SessionViewModel(
 
     fun setProfile(profile: Profile) = viewModelScope.launch { repo.setProfile(sessionId, profile) }
     fun setSubjectLang(lang: String) = viewModelScope.launch { repo.setSubjectLang(sessionId, lang) }
+    fun setSignLanguage(lang: SignLanguage) = viewModelScope.launch {
+        if (ui.value?.signLanguage != lang) repo.log(sessionId, EventType.SYSTEM, EventSource.OFFICER, text = SYSTEM_SIGN_LANGUAGE + lang.name)
+    }
 
     // The open group may not exist for the new role (sensitive is victim-only), so fall back to the shared first one.
     fun setRole(role: Role) = viewModelScope.launch {
@@ -305,8 +322,15 @@ class SessionViewModel(
         viewModelScope.launch {
             pending.joinAll()
             val segments = local.value.reading.orEmpty()
+            val narrative = local.value.signWindow == SignWindow.NARRATIVE
             local.update { it.copy(reading = null, signWindow = null) }
-            if (segments.isNotEmpty()) logSigned(segments, segments.map { it.word ?: "?" }, EventSource.MACHINE, "en")
+            if (segments.isEmpty()) return@launch
+            logSigned(segments, segments.map { it.word ?: "?" }, EventSource.MACHINE, "en")
+            val signWords = reader?.words.orEmpty()
+            val gloss = segments.flatMap { s -> glossOf(s.guesses?.firstOrNull(), signWords) }
+            val draft = glossToText(gloss, content.words, ui.value?.signLanguage ?: SignLanguage.ISL).takeIf { gloss.any { it != "?" } }?.let { "${it.en} / ${it.hi}" }
+            val note = listOfNotNull(glossTranscript(segments).takeIf { narrative }, draft).joinToString("\n")
+            if (note.isNotEmpty()) repo.log(sessionId, EventType.NOTE, EventSource.MACHINE, "en", text = note)
         }
     }
 
@@ -474,6 +498,15 @@ class SessionViewModel(
                 if (current) local.update { it.copy(chosenLanguage = body.code) }
             }
             AnswerBody.Next -> if (current) nextRule()
+            is AnswerBody.Given -> {
+                val method = Method.entries.firstOrNull { it.name == body.method }
+                if (method != null) {
+                    val g = Given(body.question, method, body.confirmed, body.value.take(TEXT_MAX), body.picks)
+                    if (!current || !hold(g, via)) logGiven(g, q, via)
+                    if (current && g.confirmed) advanceRun()
+                }
+            }
+            AnswerBody.Change -> if (current) hold(null, via)
             is AnswerBody.Text -> repo.log(sessionId, EventType.ANSWER_TEXT, EventSource.SUBJECT, ui.value?.session?.subjectLang, text = body.text.trim(), shownId = q, via = via)
             is AnswerBody.Drawing -> {
                 // Only a bitmap this phone re-encoded itself reaches the database and the report.
@@ -537,7 +570,7 @@ class SessionViewModel(
                 val id = if (yes) "yes" else "no"
                 repo.log(sessionId, EventType.ANSWER_CARD, EventSource.SUBJECT, officerLang, text = content.cards[id]?.label?.pick(officerLang), cardId = id, shownId = local.value.itemId)
             }
-            advanceRun()
+            if (advancesRun(pending, yes)) advanceRun()
         }
     }
 
@@ -604,22 +637,30 @@ class SessionViewModel(
 
     // An answer the subject entered but has not yet confirmed on its read-back.
     private var unconfirmed: Given? = null
+    private var unconfirmedVia: String? = null
 
     /** A lesson-sheet answer: a confirmed one is logged now; an unconfirmed one is logged as such if the item closes first. */
     fun give(g: Given?) {
-        if (g == null || !g.confirmed) { unconfirmed = g; return }
-        unconfirmed = null
-        viewModelScope.launch { logGiven(g); advanceRun() }
+        if (hold(g, null)) return
+        viewModelScope.launch { logGiven(g!!); advanceRun() }
+    }
+
+    /** Keeps [g] for the item's close unless it is confirmed; true when there is nothing to log now. */
+    private fun hold(g: Given?, via: String?): Boolean {
+        val held = g == null || !g.confirmed
+        unconfirmed = g.takeIf { held }
+        unconfirmedVia = via
+        return held
     }
 
     private suspend fun flushGiven() {
-        unconfirmed?.let { logGiven(it) }
+        unconfirmed?.let { logGiven(it, via = unconfirmedVia) }
         unconfirmed = null
     }
 
-    private suspend fun logGiven(g: Given) {
+    private suspend fun logGiven(g: Given, shownId: Long? = local.value.itemId, via: String? = null) {
         val text = content.answerText(content.question(g.question)?.answer, g, officerLang)
-        repo.log(sessionId, EventType.ANSWER_TEXT, EventSource.SUBJECT, officerLang, text = text, itemId = g.question, reason = g.reason(), shownId = local.value.itemId)
+        repo.log(sessionId, EventType.ANSWER_TEXT, EventSource.SUBJECT, officerLang, text = text, itemId = g.question, reason = g.reason(), shownId = shownId, via = via)
     }
 
     fun submitDrawing(png: ByteArray) {
