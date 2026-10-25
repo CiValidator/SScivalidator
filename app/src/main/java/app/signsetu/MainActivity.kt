@@ -3,9 +3,7 @@ package app.signsetu
 import android.content.Context
 import app.signsetu.data.settings.OfficerLocale
 import android.os.Bundle
-import android.view.KeyEvent
-import android.view.accessibility.AccessibilityManager
-import app.signsetu.ui.session.HardKey
+import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.ComponentActivity
@@ -21,26 +19,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Drops taps that pass through an overlay drawn by another app.
         window.decorView.filterTouchesWhenObscured = true
+        if (BuildConfig.SECURE_SCREEN) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         enableEdgeToEdge()
         val container = (application as SignSetuApp).container
         setContent { AppRoot(container) }
-    }
-
-    /** Volume keys drive the handover only when a session asks for them, and never under TalkBack, which uses them. */
-    override fun onKeyDown(keyCode: Int, event: KeyEvent) = hardKey(event) || super.onKeyDown(keyCode, event)
-
-    override fun onKeyUp(keyCode: Int, event: KeyEvent) = hardKey(event) || super.onKeyUp(keyCode, event)
-
-    private fun hardKey(event: KeyEvent): Boolean {
-        val key = when (event.keyCode) {
-            KeyEvent.KEYCODE_VOLUME_UP -> HardKey.UP
-            KeyEvent.KEYCODE_VOLUME_DOWN -> HardKey.DOWN
-            else -> null
-        }
-        val keys = (application as SignSetuApp).container.hardKeys
-        val talkBack = getSystemService(AccessibilityManager::class.java).isTouchExplorationEnabled
-        if (key == null || talkBack || !keys.consumes(key)) return false
-        if (event.repeatCount == 0) keys.events.tryEmit(key to (event.action == KeyEvent.ACTION_DOWN))
-        return true
     }
 }

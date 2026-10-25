@@ -74,6 +74,8 @@ private val SubjectType = OfficerType.copy(
     labelLarge = TextStyle(fontFamily = Baloo, fontWeight = FontWeight.Bold, fontSize = 18.sp, lineHeight = 22.sp),
 )
 
+val LocalHighContrast = staticCompositionLocalOf { false }
+
 @Composable
 fun SignSetuTheme(dark: Boolean = isSystemInDarkTheme(), theme: ColorTheme = ColorTheme.EMERALD, content: @Composable () -> Unit) {
     val palette = paletteOf(theme)
@@ -82,6 +84,7 @@ fun SignSetuTheme(dark: Boolean = isSystemInDarkTheme(), theme: ColorTheme = Col
         LocalStageColors provides if (dark) StageDark else StageLight,
         LocalInk provides if (dark) palette.inkDark else palette.inkLight,
         LocalCall provides palette.call,
+        LocalHighContrast provides (theme == ColorTheme.CONTRAST),
     ) {
         MaterialTheme(
             colorScheme = if (dark) palette.dark else palette.light,
@@ -95,8 +98,7 @@ fun SignSetuTheme(dark: Boolean = isSystemInDarkTheme(), theme: ColorTheme = Col
 /** The stage keeps the light scheme in both themes; only its backdrop dims at night. */
 @Composable
 fun SubjectTheme(content: @Composable () -> Unit) {
-    val bright by rememberSunMode()
-    if (bright || SunMode.forced.value) {
+    if (LocalHighContrast.current) {
         CompositionLocalProvider(LocalStageColors provides SunStageColors, LocalAnswerColors provides SunAnswerColors) {
             MaterialTheme(colorScheme = StageScheme, typography = SubjectType, shapes = AppShapes, content = content)
         }

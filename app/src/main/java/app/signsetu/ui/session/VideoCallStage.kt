@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.signsetu.R
+import app.signsetu.ui.theme.LocalAnswerColors
 import app.signsetu.ui.theme.LocalCall
 import app.signsetu.camera.CameraMirror
 import app.signsetu.camera.Everyday
@@ -98,7 +99,10 @@ fun VideoCallStage(
     onStartSigning: () -> Unit,
     onOpenExpressBoard: () -> Unit,
     onCue: (String) -> Unit,
+    /** Water or food asked for by the subject: a request, not an answer to what is on screen. */
+    onNeed: (String) -> Unit,
     modifier: Modifier = Modifier,
+    cameraOn: Boolean = true,
 ) {
     val lang = ui.session.subjectLang
     val pending = ui.pending
@@ -165,13 +169,14 @@ fun VideoCallStage(
         cue?.let(onCue)
         when {
             card == "yes" || card == "no" -> onYesNo(card == "yes")
+            card in NeedCards && !pending.offers(card) -> onNeed(card)
             else -> onCard(card)
         }
         when {
             card == "yes" -> react(R.string.call_r_yes)
             card == "no" -> react(R.string.call_r_no)
             card == "stop" -> react(R.string.call_r_stop)
-            card == "dont_know" -> react(R.string.call_r_unsure, feel = HapticFeedbackType.TextHandleMove)
+            card == "dont_know" || card == DONT_UNDERSTAND || card == "wrong" -> react(R.string.call_r_unsure, feel = HapticFeedbackType.TextHandleMove)
             card == "water" -> react(R.string.call_r_water)
             card == "food" -> react(R.string.call_r_food)
             card.matches(FINGERS) -> reactCount(R.plurals.call_r_fingers, card.drop(1).toInt())
@@ -283,6 +288,7 @@ fun VideoCallStage(
                     tracker = tracker,
                     modifier = Modifier.fillMaxSize(),
                     showSkeleton = showVictimSkeleton,
+                showFace = true,
                 fill = swapped,
                     onFrame = onFrameAnalyzed,
                     onHead = { head ->
@@ -349,38 +355,40 @@ fun VideoCallStage(
         }
 
         Box(
-            modifier = Modifier.fillMaxSize().padding(bottom = if (swapped) 0.dp else 90.dp),
+            modifier = Modifier.fillMaxSize().padding(bottom = if (swapped && cameraOn) 0.dp else 90.dp),
             contentAlignment = Alignment.Center,
-        ) { if (swapped) cameraView() else avatarView() }
+        ) { if (swapped && cameraOn) cameraView() else avatarView() }
 
-        val pipWidth = 130.dp
-        val pipShape = RoundedCornerShape(20.dp)
+        if (cameraOn) {
+            val pipWidth = 130.dp
+            val pipShape = RoundedCornerShape(20.dp)
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = if (swapped) 44.dp else 13.dp, end = 13.dp)
-                .offset { IntOffset(pipOffsetX.roundToInt(), pipOffsetY.roundToInt()) }
-                .size(pipWidth, pipWidth * (16f / 9f))
-                .clip(pipShape)
-                .border(
-                    BorderStroke(
-                        if (signing) 3.dp else 2.dp,
-                        if (signing) Color(0xFF10B981) else Color(0x88FFFFFF),
-                    ),
-                    pipShape,
-                )
-                .shadow(8.dp, pipShape)
-                .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
-                        change.consume()
-                        pipOffsetX += dragAmount.x
-                        pipOffsetY += dragAmount.y
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = if (swapped) 44.dp else 13.dp, end = 13.dp)
+                    .offset { IntOffset(pipOffsetX.roundToInt(), pipOffsetY.roundToInt()) }
+                    .size(pipWidth, pipWidth * (16f / 9f))
+                    .clip(pipShape)
+                    .border(
+                        BorderStroke(
+                            if (signing) 3.dp else 2.dp,
+                            if (signing) Color(0xFF10B981) else Color(0x88FFFFFF),
+                        ),
+                        pipShape,
+                    )
+                    .shadow(8.dp, pipShape)
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            pipOffsetX += dragAmount.x
+                            pipOffsetY += dragAmount.y
+                        }
                     }
-                }
-                .clickable { swapped = !swapped },
-        ) {
-            if (swapped) avatarView() else cameraView()
+                    .clickable { swapped = !swapped },
+            ) {
+                if (swapped) avatarView() else cameraView()
+            }
         }
 
         Column(
@@ -472,6 +480,17 @@ fun VideoCallStage(
                     )
                 }
             }
+
+            // Stop and the honest ways out stay in reach on every item, as on the full stage; Stop is the only one named.
+            val answers = LocalAnswerColors.current
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SmallAnswer("stop", content.subjectText("stop", lang), stringResource(R.string.stage_stop), answers.pause, answers.onPause, ui.answeredCard == "stop", { answer("stop") }, Modifier.weight(1.6f), height = 48.dp)
+                if (pending != null && !signing) {
+                    SmallAnswer("dont_know", null, content.subjectText("dont_know", lang) ?: stringResource(R.string.stage_dont_know), answers.unsure, answers.onUnsure, ui.answeredCard == "dont_know", { answer("dont_know") }, Modifier.weight(1f), height = 48.dp)
+                    SmallAnswer(DONT_UNDERSTAND, null, content.subjectText(DONT_UNDERSTAND, lang) ?: stringResource(R.string.stage_dont_understand), answers.unsure, answers.onUnsure, ui.answeredCard == DONT_UNDERSTAND, { answer(DONT_UNDERSTAND) }, Modifier.weight(1f), height = 48.dp)
+                    SmallAnswer("wrong", null, content.subjectText("wrong", lang) ?: stringResource(R.string.stage_wrong), answers.unsure, answers.onUnsure, ui.answeredCard == "wrong", { answer("wrong") }, Modifier.weight(1f), height = 48.dp)
+                }
+            }
         }
 
         proposal?.let { (card, cue) ->
@@ -484,7 +503,7 @@ fun VideoCallStage(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
-                    .padding(bottom = 104.dp)
+                    .padding(bottom = 184.dp)
                     .clickable { answer(card, cue) }
                     .semantics { role = Role.Button; contentDescription = label },
             ) {

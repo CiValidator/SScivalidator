@@ -6,9 +6,8 @@ sdk.dir=
 # Optional department gateway URL for enrolled devices
 # gatewayUrl=https://gateway.example.gov.in
 
-# Direct assistant API key (used for development/private builds only).
-# The OPENROUTER_API_KEY environment variable is read first and is compiled into every build, debug included.
-# openrouterKey=your_api_key_here
+# No assistant key is ever compiled into an APK. A gateway build enrols with a department code; a build without a
+# gateway takes an OpenAI-compatible address, key and model in Settings, Developer, and keeps the key in the Keystore.
 
 # Assistant client user-agent header override (e.g. for gateways requiring standard CLI or client identification)
 # assistUserAgent=SignSetu/0.7.0 (Android; client-sdk)

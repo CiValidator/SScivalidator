@@ -1,4 +1,4 @@
-# 17. Device attestation and certificate pinning: assessment and design
+# 14. Device attestation and certificate pinning: assessment and design
 
 Both measures depend on the production gateway host and its certificate authority. Section 6 lists the deployment inputs.
 

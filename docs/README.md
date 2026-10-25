@@ -41,14 +41,14 @@ Sign Setu is an offline Android app that helps a police officer communicate with
 | [04-security.md](04-security.md) | Security controls, MASVS mapping, threat model, key management, review points |
 | [05-avatar-and-gestures.md](05-avatar-and-gestures.md) | Gesture and sign lexicons, the two characters, the rig, motion pipelines |
 | [06-hardware-baseline-protocol.md](06-hardware-baseline-protocol.md) | Android 10 ARM64 benchmark procedure and thresholds |
-| [08-two-device-bluetooth-test.md](08-two-device-bluetooth-test.md) | Two-device pairing and recovery test |
-| [09-open-source.md](09-open-source.md) | Open-source components, licences and attribution |
-| [11-hand-model-integration.md](11-hand-model-integration.md) | Vision engine, sign readers, sign windows, and the contract for a replacement model |
-| [12-on-device-assistant.md](12-on-device-assistant.md) | The translation assistant, local and online |
-| [13-product-overview.md](13-product-overview.md) | Feature reference for explaining the product |
-| [14-screens.md](14-screens.md) | Every screen, with screenshots in [screens/](screens/) |
-| [15-dpia.md](15-dpia.md) | Data protection impact assessment |
-| [17-attestation-and-pinning.md](17-attestation-and-pinning.md) | Certificate pinning and Key Attestation design for the gateway |
+| [07-two-device-bluetooth-test.md](07-two-device-bluetooth-test.md) | Two-device pairing and recovery test |
+| [08-open-source.md](08-open-source.md) | Open-source components, licences and attribution |
+| [09-hand-model-integration.md](09-hand-model-integration.md) | Vision engine, sign readers, sign windows, and the contract for a replacement model |
+| [10-on-device-assistant.md](10-on-device-assistant.md) | The translation assistant, local and online |
+| [11-product-overview.md](11-product-overview.md) | Feature reference for explaining the product |
+| [12-screens.md](12-screens.md) | Every screen, with screenshots in [screens/](screens/) |
+| [13-dpia.md](13-dpia.md) | Data protection impact assessment |
+| [14-attestation-and-pinning.md](14-attestation-and-pinning.md) | Certificate pinning and Key Attestation design for the gateway |
 | [../portal/README.md](../portal/README.md) | Reviewer portal for content sign-off |
 | [../backend/README.md](../backend/README.md) | Department gateway |
 | [../tools/ml/README.md](../tools/ml/README.md), [../tools/isl/README.md](../tools/isl/README.md) | Sign reader training and sign retargeting |
@@ -98,7 +98,7 @@ flowchart LR
 | Devices | Android 10 (API 29) or later, 64-bit, 3 GB RAM or more, 5 to 6.9 inch portrait |
 | Flavors | `standard` (reference, Bluetooth RFCOMM) and `nearby` (adds Google Nearby Connections) |
 | Release packages | Universal (arm64-v8a and x86_64) and arm64-v8a phone APKs, unsigned until the release step; native libraries and models stored uncompressed |
-| Permissions (standard) | `CAMERA`, `BLUETOOTH_CONNECT` (`BLUETOOTH` up to API 30), `USE_BIOMETRIC`, `VIBRATE`, `INTERNET` (gateway or direct assistant only). No microphone and no location: a build gate fails the build otherwise |
+| Permissions (standard) | `CAMERA`, `BLUETOOTH_CONNECT` (`BLUETOOTH` up to API 30), `USE_BIOMETRIC`, `VIBRATE`, `INTERNET` (online assistant only), `RECEIVE_BOOT_COMPLETED` (keeps the hourly retention job scheduled). No microphone and no location: a build gate fails the build otherwise |
 | Languages (17) | English, Hindi, Chhattisgarhi, Gondi, Halbi, Bengali, Nepali, Assamese, Odia, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati, Punjabi, Urdu |
 
 ## 3. Data flow
@@ -155,7 +155,7 @@ flowchart LR
         D4[("D4 Keystore")]:::store
         D5[("D5 Assistant model")]:::store
         D6[("D6 Landmark memory")]:::store
-        D9[("D9 Gateway token")]:::store
+        D9[("D9 Assistant credentials")]:::store
     end
     E1["E1 Officer"]:::ent
     E2["E2 Subject"]:::ent
@@ -196,17 +196,17 @@ flowchart LR
 | D1 Session store | SQLCipher Room database: sessions, sealed events, drawings | Personal, restricted |
 | D2 Content bundle | Questions, cards, motions, audio, models; SHA-256 manifest | Public content |
 | D3 Settings | DataStore `settings`; plain preferences `locale` (officer language) and `clock` (latest day seen); no personal data | Internal |
-| D4 Keystore | Non-exportable AES keys: database KEK, gateway token key | Secret |
+| D4 Keystore | Non-exportable AES keys: database KEK, gateway token key, key for the officer's own assistant key | Secret |
 | D5 Assistant model | Optional GGUF file, hash-checked on import | Internal |
 | D6 Landmark memory | Hand, face and pose points of signed answers, view-model memory only | Personal, volatile |
-| D9 Gateway token | Bearer token wrapped by the Keystore token key | Secret |
+| D9 Assistant credentials | Gateway bearer token, or on a build without a gateway the key the officer saved in Settings, Developer; each wrapped by its own Keystore key | Secret |
 
 ### 3.3 Trust boundaries
 
 | ID | Boundary | Controls |
 | --- | --- | --- |
 | TB0 | The stage, facing the subject | Pinned, full screen; officer notes and drafts never drawn; landmarks kept only inside a sign window; a reading becomes the subject's only when the subject picks it |
-| TB1 | Officer's phone, app sandbox | SQLCipher under a Keystore-wrapped key, FLAG_SECURE, no backup, manifest-checked content, officer unlock |
+| TB1 | Officer's phone, app sandbox | SQLCipher under a Keystore-wrapped key, FLAG_SECURE in the final release build (`secureScreen`), no backup, manifest-checked content, officer unlock |
 | TB2 | Bluetooth link to a stage device | Bonded devices only, commit-then-reveal ECDH with a typed code and check number, AES-256-GCM frames; the stage stores nothing |
 | TB3 | Network to the gateway | HTTPS only, bearer token, names and details masked, session text only after the officer allows it for the session |
 
@@ -228,17 +228,17 @@ Sign reader accuracy, measured, not targets:
 | --- | --- | --- | --- |
 | ISL words (262) | Signers seen in training (n=816) | 0.979 | 0.995 |
 | ISL words | A new signer, ISLRTC dictionary clips (n=199) | 0.286 | 0.442 |
-| ASL words | Held-out PopSign signers | 0.402 | n/a |
+| ASL words | Held-out PopSign signers (n=5385) | 0.402 | 0.543 |
 | ISL letters, digits | Real signers, small samples (23 letters, 10 digits) | 0.13 letters, 0.80 digits | 0.30, 1.00 |
 
-The readers generalise poorly to people they have not seen, so a reading is never recorded as an answer: the subject confirms every signed meaning from pictures. Details are in [tools/ml/EVAL.md](../tools/ml/EVAL.md).
+The readers generalise poorly to people they have not seen, so a reading is never recorded as an answer: it is logged as the app's reading, the officer can set their own reading beside it, and only the subject's pick among pictures (Ask them to choose) makes a meaning theirs. Details are in [tools/ml/EVAL.md](../tools/ml/EVAL.md).
 
 ## 5. Build, release and operation
 
 | Topic | Practice |
 | --- | --- |
 | Reproducibility | Gradle wrapper, version catalog, lockfile and checksum verification; llama.cpp vendored; `.gitattributes` forces LF so content hashes hold on every checkout |
-| Release build | `./gradlew assembleStandardRelease` (universal) and `-Pabi=arm64-v8a` (phone); add `-PgatewayUrl=https://...` for a gateway build; `-PallowEmbeddedKey` is only for a private build that compiles in a direct assistant key; shipped builds compile in none |
+| Release build | `./gradlew assembleStandardRelease` (universal) and `-Pabi=arm64-v8a` (phone); add `-PgatewayUrl=https://...` for a gateway build and `-PsecureScreen=true` for the final APK. No assistant key is ever compiled in: a gateway build enrols with a department code, a build without one takes the officer's own service and key in Settings, Developer |
 | Signing | `zipalign` and `apksigner` with the department key, offline, signature scheme v3 |
 | Expiry | A build refuses new sessions 180 days after its build day |
 | Install | Allow installs from the source and open the APK. A screen lock is strongly recommended; without one the app warns once and keeps records under a key not tied to unlocking until a lock is set |
@@ -249,7 +249,7 @@ The readers generalise poorly to people they have not seen, so a reading is neve
 
 | Item | Impact | Handling |
 | --- | --- | --- |
-| Sign reading on unseen signers | Wrong proposals | Readings are never answers; the subject confirms from pictures; every line carries its grade |
+| Sign reading on unseen signers | Wrong proposals | Readings are never answers; the subject can be asked to pick the meaning from pictures; every line carries its grade |
 | Translations beyond English and Hindi are drafts | Wording may be wrong | Draft label for the officer |
 | Gondi and Halbi have no voice | Captions and pictures only | Every question has both |
 | Placeholder speech is synthetic | Unnatural voice | Speech is optional |

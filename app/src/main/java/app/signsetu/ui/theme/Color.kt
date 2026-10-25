@@ -102,7 +102,7 @@ internal val StageDark = StageColors(
     tool = Color(0xFFFFF6EC),
 )
 
-/** Sun mode: black, white and yellow, the combination that still reads in direct sunlight. */
+/** The Contrast theme's stage: black, white and yellow, the combination that still reads in direct sunlight. */
 internal val SunStageColors = StageColors(
     skyTop = Color(0xFF111111),
     skyBottom = Color(0xFF1A1A1A),

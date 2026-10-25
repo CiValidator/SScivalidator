@@ -395,10 +395,35 @@ private val AmethystPalette = Palette(
     inkDark = ink(Color(0xFF7140B8)),
 )
 
+// Pure black for OLED screens: the emerald dark scheme with its greys dropped to black.
+private val AmoledScheme = EmeraldPalette.dark.copy(
+    background = Color.Black, surface = Color.Black, surfaceVariant = Color(0xFF111111),
+    surfaceContainerLowest = Color.Black, surfaceContainerLow = Color(0xFF050505), surfaceContainer = Color(0xFF0A0A0A),
+    surfaceContainerHigh = Color(0xFF111111), surfaceContainerHighest = Color(0xFF181818),
+)
+private val AmoledPalette = Palette(AmoledScheme, AmoledScheme, EmeraldPalette.inkDark, EmeraldPalette.inkDark)
+
+// Black and white with white outlines; colour is left to icons and the primary accent.
+private val ContrastScheme = darkColorScheme(
+    primary = Color(0xFFFFE14D), onPrimary = Color.Black, primaryContainer = Color.Black, onPrimaryContainer = Color.White,
+    inversePrimary = Color(0xFFFFE14D),
+    secondary = Color(0xFF7DE3FF), onSecondary = Color.Black, secondaryContainer = Color.Black, onSecondaryContainer = Color.White,
+    tertiary = Color(0xFFFFB36B), onTertiary = Color.Black, tertiaryContainer = Color.Black, onTertiaryContainer = Color.White,
+    error = Color(0xFFFF6B6B), onError = Color.Black, errorContainer = Color.Black, onErrorContainer = Color.White,
+    background = Color.Black, onBackground = Color.White, surface = Color.Black, onSurface = Color.White,
+    surfaceVariant = Color.Black, onSurfaceVariant = Color.White, outline = Color.White, outlineVariant = Color.White,
+    inverseSurface = Color.White, inverseOnSurface = Color.Black,
+    surfaceContainerLowest = Color.Black, surfaceContainerLow = Color.Black, surfaceContainer = Color.Black,
+    surfaceContainerHigh = Color.Black, surfaceContainerHighest = Color.Black,
+)
+private val ContrastPalette = Palette(ContrastScheme, ContrastScheme, InkColors(Color.White, Color.White, SolidColor(Color.Black)), InkColors(Color.White, Color.White, SolidColor(Color.Black)))
+
 internal fun paletteOf(theme: ColorTheme): Palette = when (theme) {
     ColorTheme.EMERALD -> EmeraldPalette
     ColorTheme.MOCHA -> MochaPalette
     ColorTheme.SAGE -> SagePalette
     ColorTheme.CERULEAN -> CeruleanPalette
     ColorTheme.AMETHYST -> AmethystPalette
+    ColorTheme.AMOLED -> AmoledPalette
+    ColorTheme.CONTRAST -> ContrastPalette
 }
