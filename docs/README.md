@@ -4,7 +4,7 @@ Sign Setu is an offline Android app that helps a police officer communicate with
 
 | Field | Value |
 | --- | --- |
-| Version | 0.7.2 (version code 12), applicationId `in.signsetu` |
+| Version | 0.7.3 (version code 13), applicationId `in.signsetu` |
 | Classification | Internal |
 | Source of truth | This repository; the code wins over any document, and documents are corrected when they drift |
 

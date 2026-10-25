@@ -312,7 +312,7 @@ fun Stage(
                 )
             }
             if (paused) pauseLayer()
-            onOfficer?.let { OfficerHandle(it, Modifier.align(if (ui.rotated) Alignment.BottomStart else Alignment.TopEnd).safeDrawingPadding()) }
+            onOfficer?.let { OfficerHandle(it, Modifier.align(if (ui.rotated) Alignment.BottomEnd else Alignment.TopStart).windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) }
         }
         return
     }
@@ -576,7 +576,7 @@ fun Stage(
                 onDismiss = { showExpressBoard = false },
             )
         }
-        onOfficer?.let { OfficerHandle(it, Modifier.align(if (ui.rotated) Alignment.BottomStart else Alignment.TopEnd).safeDrawingPadding()) }
+        onOfficer?.let { OfficerHandle(it, Modifier.align(if (ui.rotated) Alignment.BottomEnd else Alignment.TopStart).safeDrawingPadding()) }
         }
     }
 }

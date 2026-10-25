@@ -47,73 +47,6 @@ import app.signsetu.ui.theme.LocalCall
 import app.signsetu.ui.components.CardImage
 import app.signsetu.ui.theme.Baloo
 
-/** Kept apart from the stage, so the live dot's pulse redraws only this bar. */
-@Composable
-internal fun CallHeader(onBreathe: () -> Unit, modifier: Modifier) {
-    val pulseAlpha by rememberInfiniteTransition(label = "pulse").animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(1200, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "pulseAlpha",
-    )
-    Surface(
-        color = LocalCall.current.bg.copy(alpha = 0.8f),
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                // The end stays clear for the officer's handle.
-                .padding(start = 16.dp, end = 64.dp, top = 10.dp, bottom = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Surface(shape = CircleShape, color = Color(0xFF10B981), modifier = Modifier.size(12.dp)) {}
-                    Surface(shape = CircleShape, color = Color(0xFF10B981).copy(alpha = pulseAlpha), modifier = Modifier.size(20.dp)) {}
-                }
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            fontFamily = Baloo,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = Color.White,
-                        )
-                        Icon(Icons.Filled.Lock, contentDescription = null, tint = LocalCall.current.accent, modifier = Modifier.size(15.dp))
-                    }
-                }
-            }
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = LocalCall.current.accentDeep.copy(alpha = 0.85f),
-                border = BorderStroke(1.dp, LocalCall.current.accent),
-                modifier = Modifier.clickable(onClick = onBreathe),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(text = "🫁", fontSize = 12.sp)
-                    Text(
-                        text = stringResource(R.string.call_breathe),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = LocalCall.current.accentSoft,
-                    )
-                }
-            }
-        }
-    }
-}
-
 @Composable
 internal fun CalmingBreathingGuide(onDismiss: () -> Unit) {
     val breathScale by rememberInfiniteTransition(label = "breathCycle").animateFloat(
@@ -241,6 +174,7 @@ internal fun CallActionButton(icon: String, label: String, backgroundColor: Colo
                     "yes" -> Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
                     "no" -> Icon(Icons.Filled.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
                     "express" -> Icon(Icons.Filled.Favorite, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    "breathe" -> Text("🧘", fontSize = 26.sp)
                     else -> CardImage(icon, Modifier.size(28.dp))
                 }
             }

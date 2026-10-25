@@ -107,7 +107,7 @@ fun VideoCallStage(
 
     var pipOffsetX by remember { mutableFloatStateOf(0f) }
     var pipOffsetY by remember { mutableFloatStateOf(0f) }
-    var pipExpanded by remember { mutableStateOf(false) }
+    var swapped by remember { mutableStateOf(false) }
 
     // A string resource and its optional argument, resolved where it is drawn so a language change is followed.
     var recentReaction by remember { mutableStateOf<Reaction?>(null) }
@@ -250,50 +250,116 @@ fun VideoCallStage(
                 }
             },
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(bottom = 90.dp, top = 64.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Brush.radialGradient(listOf(LocalCall.current.surface, LocalCall.current.bg))),
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Avatar(
-                    character = characterFor(ui),
-                    gesture = shownGesture,
-                    playKey = guided?.let { "guide:$guideStep" } ?: pending,
-                    speed = 0.9f,
-                    idle = !signing,
-                    glance = true,
-                    question = if (pending is Pending.Ask || pending is Pending.PhraseAsk) questionKind(promptText) else null,
+        val avatarView: @Composable () -> Unit = {
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .aspectRatio(AVATAR_ASPECT),
+                        .background(Brush.radialGradient(listOf(LocalCall.current.surface, LocalCall.current.bg))),
                 )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Avatar(
+                        character = characterFor(ui),
+                        gesture = shownGesture,
+                        playKey = guided?.let { "guide:$guideStep" } ?: pending,
+                        speed = 0.9f,
+                        idle = !signing,
+                        glance = true,
+                        question = if (pending is Pending.Ask || pending is Pending.PhraseAsk) questionKind(promptText) else null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .aspectRatio(AVATAR_ASPECT),
+                    )
+                }
+        }
+
+        val cameraView: @Composable () -> Unit = {
+            Box(Modifier.fillMaxSize()) {
+                CameraMirror(
+                    tracker = tracker,
+                    modifier = Modifier.fillMaxSize(),
+                    showSkeleton = showVictimSkeleton,
+                fill = swapped,
+                    onFrame = onFrameAnalyzed,
+                    onHead = { head ->
+                        when (head) {
+                            Head.Nod -> propose("yes", "nod")
+                            Head.Shake -> propose("no", "shake")
+                        }
+                    },
+                    onPoint = { pointId -> propose(pointId, "point") },
+                    onStopPalm = { propose("stop", "palm") },
+                    onShrug = { propose("dont_know", "shrug") },
+                    onEveryday = { seen ->
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        courtesy = when (seen) {
+                            Everyday.THANKS -> "thank_you" to "thanks"
+                            else -> "namaste" to seen.name.lowercase()
+                        }
+                    },
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(LocalCall.current.surface),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(painterResource(R.drawable.ic_videocam), contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(24.dp))
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (showVictimSkeleton) LocalCall.current.bg.copy(alpha = 0.87f) else Color(0x99000000),
+                    border = BorderStroke(1.dp, if (showVictimSkeleton) Color(0xFFFBBF24) else Color(0x44FFFFFF)),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .clickable { showVictimSkeleton = !showVictimSkeleton },
+                ) {
+                    Text(
+                        text = stringResource(if (showVictimSkeleton) R.string.call_skeleton_on else R.string.call_skeleton_off),
+                        fontSize = 9.sp,
+                        color = if (showVictimSkeleton) Color(0xFFFDE68A) else LocalCall.current.text,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (signing) Color(0xFF10B981) else Color(0xCC000000),
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp),
+                ) {
+                    Text(
+                        text = stringResource(if (signing) R.string.call_signing else R.string.call_you),
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
             }
         }
 
-        CallHeader(
-            onBreathe = { showBreathingGuide = !showBreathingGuide },
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
+        Box(
+            modifier = Modifier.fillMaxSize().padding(bottom = if (swapped) 0.dp else 90.dp),
+            contentAlignment = Alignment.Center,
+        ) { if (swapped) cameraView() else avatarView() }
 
-        val pipWidth = if (pipExpanded) 180.dp else 130.dp
+        val pipWidth = 130.dp
         val pipShape = RoundedCornerShape(20.dp)
+
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 100.dp, end = 14.dp)
+                .padding(top = if (swapped) 44.dp else 13.dp, end = 13.dp)
                 .offset { IntOffset(pipOffsetX.roundToInt(), pipOffsetY.roundToInt()) }
                 .size(pipWidth, pipWidth * (16f / 9f))
                 .clip(pipShape)
@@ -312,73 +378,9 @@ fun VideoCallStage(
                         pipOffsetY += dragAmount.y
                     }
                 }
-                .clickable { pipExpanded = !pipExpanded },
+                .clickable { swapped = !swapped },
         ) {
-            CameraMirror(
-                tracker = tracker,
-                modifier = Modifier.fillMaxSize(),
-                showSkeleton = showVictimSkeleton,
-                onFrame = onFrameAnalyzed,
-                onHead = { head ->
-                    when (head) {
-                        Head.Nod -> propose("yes", "nod")
-                        Head.Shake -> propose("no", "shake")
-                    }
-                },
-                onPoint = { pointId -> propose(pointId, "point") },
-                onStopPalm = { propose("stop", "palm") },
-                onShrug = { propose("dont_know", "shrug") },
-                onEveryday = { seen ->
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    courtesy = when (seen) {
-                        Everyday.THANKS -> "thank_you" to "thanks"
-                        else -> "namaste" to seen.name.lowercase()
-                    }
-                },
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(LocalCall.current.surface),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(painterResource(R.drawable.ic_videocam), contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(24.dp))
-                }
-            }
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = if (showVictimSkeleton) LocalCall.current.bg.copy(alpha = 0.87f) else Color(0x99000000),
-                border = BorderStroke(1.dp, if (showVictimSkeleton) Color(0xFFFBBF24) else Color(0x44FFFFFF)),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(6.dp)
-                    .clickable { showVictimSkeleton = !showVictimSkeleton },
-            ) {
-                Text(
-                    text = stringResource(if (showVictimSkeleton) R.string.call_skeleton_on else R.string.call_skeleton_off),
-                    fontSize = 9.sp,
-                    color = if (showVictimSkeleton) Color(0xFFFDE68A) else LocalCall.current.text,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                )
-            }
-
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (signing) Color(0xFF10B981) else Color(0xCC000000),
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(6.dp),
-            ) {
-                Text(
-                    text = stringResource(if (signing) R.string.call_signing else R.string.call_you),
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                )
-            }
+            if (swapped) avatarView() else cameraView()
         }
 
         Column(
@@ -529,9 +531,8 @@ fun VideoCallStage(
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onOpenExpressBoard()
                 }
-                CallActionButton("stop", cardLabel(content, "stop", lang), Color(0xFFDC2626), highlight = guided?.first == "stop") {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    answer("stop")
+                CallActionButton("breathe", stringResource(R.string.call_breathe), Color(0xFF0D9488)) {
+                    showBreathingGuide = !showBreathingGuide
                 }
             }
         }
@@ -554,7 +555,7 @@ internal object StageSkeleton {
 }
 
 /** Each stage button with the sign the character makes while it is pointed out. */
-private val GuideSteps = listOf("yes" to "yes.nod", "no" to "no.shake", "water" to "water.cup", "food" to "eat.fingers", "express" to "show_me", "stop" to "show_me")
+private val GuideSteps = listOf("yes" to "yes.nod", "no" to "no.shake", "water" to "water.cup", "food" to "eat.fingers", "express" to "show_me")
 private const val GUIDE_IDLE_MS = 20_000L
 /** How long a read courtesy waits for the subject's tap before it is dropped. */
 private const val COURTESY_MS = 6_000L
