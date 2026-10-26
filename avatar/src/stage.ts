@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { VRMLoaderPlugin, type VRM, type VRMHumanBoneName } from "@pixiv/three-vrm";
 import { applyClipFrame } from "./clip";
-import { arm, expressions, fingerAngles, handTurn, solveArm, type Body } from "./retarget";
+import { arm, expressions, fingerAngles, handTurn, solveArm, splitTwist, type Body } from "./retarget";
 import { FACES, L, R, Timeline, blinkAt, glanceAt, livePose, type Gesture, type Pose, type QuestionKind, type Side } from "./rig";
 
 export type View = "body" | "head";
@@ -64,6 +64,8 @@ export class AvatarStage {
     const vrm = (await loader.loadAsync(url)).userData.vrm as VRM;
     // Flatter bust depth gives the arms clearance across the chest, and the bust takes no spring motion.
     for (const name of ["J_Sec_L_Bust1", "J_Sec_R_Bust1"]) vrm.scene.getObjectByName(name)?.scale.set(0.7, 0.7, 0.45);
+    // The model's hands are large beside its arms.
+    for (const name of ["leftHand", "rightHand"] as const) vrm.humanoid.getRawBoneNode(name)?.scale.setScalar(0.9);
     const springs = vrm.springBoneManager;
     for (const joint of springs?.joints ?? []) if (/Bust/i.test(joint.bone.name)) springs!.deleteJoint(joint);
     vrm.scene.traverse((o) => (o.frustumCulled = false));
@@ -190,7 +192,11 @@ export class AvatarStage {
       const lowerWorld = aim(lower, armRest(side), wrist.clone().sub(elbow), upperWorld);
       const h = side === R ? p.r : p.l;
       const turn = handTurn(h, side, wrist.clone().sub(elbow).applyQuaternion(turnChest.clone().invert()), body.fingerRest);
-      hand.quaternion.copy(lowerWorld.invert().multiply(turnChest.clone().multiply(turn)));
+      // The forearm takes half the twist and the wrist the rest; all of it in one bone wrings the skin at that joint.
+      const local = lowerWorld.invert().multiply(turnChest.clone().multiply(turn));
+      const half = new THREE.Quaternion().slerp(splitTwist(local, armRest(side)).twist, 0.5);
+      lower.quaternion.multiply(half);
+      hand.quaternion.copy(half.invert().multiply(local));
       for (const [name, [x, y, z]] of Object.entries(fingerAngles(h.shape, side))) {
         bone(`${prefix}${name}`)?.rotation.set(x, y, z, name.endsWith("Proximal") && !name.startsWith("Thumb") ? "YZX" : "XYZ");
       }

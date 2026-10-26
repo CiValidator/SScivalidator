@@ -54,16 +54,22 @@ export function place(x: number, y: number, body: Body): Vector3 {
   const inside = 1 - smooth(out, BUILD.shoulderHalf, BUILD.shoulderHalf + 24);
   const bodyZ = body.right.z + 0.05 + 0.2 * inside * (1 - smooth(y, A.hip[1], restY));
   return new Vector3(
-    (body.left.x + body.right.x) / 2 + (x - CENTER) * MathUtils.lerp(face, width / BUILD.shoulderHalf, w),
+    // Below the hips the model is wider than the rig, so hanging hands move out to clear them.
+    (body.left.x + body.right.x) / 2 +
+      (x - CENTER) * MathUtils.lerp(face, width / BUILD.shoulderHalf, w) * (1 + 0.45 * smooth(y, A.hip[1], restY)),
     height,
     MathUtils.lerp(faceZ, bodyZ, w),
   );
 }
 
-/** Two-bone arm: the elbow for shoulder s and wrist target t, bent toward pole. The wrist comes back within reach. */
+/** The closest a wrist comes to its shoulder, as a share of arm length: an elbow folded tighter collapses the mesh. */
+const MIN_REACH = 0.45;
+
+/** Two-bone arm: the elbow for shoulder s and wrist target t, bent toward pole. The wrist comes back within reach
+ * and no nearer than [MIN_REACH]. */
 export function solveArm(s: Vector3, t: Vector3, pole: Vector3, upper: number, fore: number): { elbow: Vector3; wrist: Vector3 } {
   const dir = t.clone().sub(s);
-  const d = MathUtils.clamp(dir.length(), Math.abs(upper - fore) + 1e-3, upper + fore - 1e-3);
+  const d = MathUtils.clamp(dir.length(), Math.max(Math.abs(upper - fore) + 1e-3, MIN_REACH * (upper + fore)), upper + fore - 1e-3);
   dir.normalize();
   const a = (upper * upper + d * d - fore * fore) / (2 * d);
   const h = Math.sqrt(Math.max(0, upper * upper - a * a));
@@ -86,7 +92,8 @@ export interface ArmTarget {
 export function arm(p: Pose, side: Side, body: Body, lastElbow?: Vector3): ArmTarget {
   const h = side === R ? p.r : p.l;
   const s = side === R ? body.right : body.left;
-  const pole = s.clone().add(new Vector3(side * (0.12 + 0.18 * h.elbowOut), -0.4, -0.12));
+  // Down, out to the side and a little forward, so the upper arm never sinks into or behind the torso.
+  const pole = s.clone().add(new Vector3(side * Math.max(0.1, 0.2 + 0.12 * h.elbowOut), -0.4, 0.06));
   if (lastElbow) pole.lerp(lastElbow, 0.7);
   return { wrist: place(h.x, h.y, body), pole };
 }
@@ -100,8 +107,9 @@ export function handTurn(h: HandPose, side: Side, forearm: Vector3, fingerRest =
   if (Number.isNaN(h.angle)) fingers = forearm.clone().normalize();
   else {
     const a = MathUtils.degToRad(h.angle);
-    // Fingers lean a little toward the viewer when the palm or back shows; edge-on (roll 0) stays a pure side view.
-    fingers = new Vector3(Math.sin(a), Math.cos(a), 0.25 * Math.abs(h.roll)).normalize();
+    // An open palm leans its fingers a little toward the viewer; a hand showing its back is on the body, so its fingers
+    // lean in and wrap. Edge-on (roll 0) stays a pure side view.
+    fingers = new Vector3(Math.sin(a), Math.cos(a), 0.4 * h.roll).normalize();
   }
   const phi = ((1 - h.roll) * Math.PI) / 2;
   const palm = new Vector3(-Math.sin(phi) * side, 0, Math.cos(phi));
@@ -114,6 +122,17 @@ export function handTurn(h: HandPose, side: Side, forearm: Vector3, fingerRest =
   const basis = (f: Vector3, n: Vector3) => new Matrix4().makeBasis(f, n, f.clone().cross(n));
   const m = basis(fingers, palm).multiply(basis(restFingers, restPalm).transpose());
   return new Quaternion().setFromRotationMatrix(m);
+}
+
+/** Splits a hand's turn relative to its forearm into the twist about the forearm [axis] and the swing left over, so
+ * the forearm takes the twist (as a human forearm turns) and the wrist only bends: local = twist * swing. */
+export function splitTwist(local: Quaternion, axis: Vector3): { twist: Quaternion; swing: Quaternion } {
+  const a = axis.clone().normalize();
+  const along = a.multiplyScalar(local.x * a.x + local.y * a.y + local.z * a.z);
+  const twist = new Quaternion(along.x, along.y, along.z, local.w);
+  if (twist.lengthSq() < 1e-12) twist.identity();
+  else twist.normalize();
+  return { twist, swing: twist.clone().invert().multiply(local) };
 }
 
 const FINGERS = ["Index", "Middle", "Ring", "Little"] as const;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { Vector3 } from "three";
-import { arm, expressions, handTurn, place, solveArm, type Body } from "./retarget";
+import { Quaternion, Vector3 } from "three";
+import { arm, expressions, handTurn, place, solveArm, splitTwist, type Body } from "./retarget";
 import { BUILD, FACES, L, R, SHAPES, Timeline, restPose, type HandPose } from "./rig";
 
 // Rest bones of the shipped model (app/src/main/assets/avatar/model.vrm).
@@ -36,6 +36,7 @@ describe("place", () => {
     const wrist = place(rest.r.x, rest.r.y, body);
     expect(wrist.distanceTo(body.right)).toBeGreaterThan((body.upper + body.fore) * 0.9);
     expect(wrist.z - body.right.z).toBeLessThan(0.06);
+    expect(Math.abs(wrist.x)).toBeGreaterThan(Math.abs(body.right.x) + 0.06);
   });
 });
 
@@ -46,6 +47,26 @@ describe("solveArm", () => {
     expect(elbow.distanceTo(s)).toBeCloseTo(body.upper, 5);
     expect(elbow.distanceTo(wrist)).toBeCloseTo(body.fore, 5);
     expect(elbow.y).toBeLessThan(s.y);
+  });
+
+  it("never folds the elbow tighter than the mesh can show", () => {
+    const { elbow, wrist } = solveArm(
+      body.right,
+      body.right.clone().add(new Vector3(0.02, 0, 0.02)),
+      new Vector3(-0.3, 1.1, 0.1),
+      body.upper,
+      body.fore,
+    );
+    expect(wrist.distanceTo(body.right)).toBeGreaterThanOrEqual(0.45 * (body.upper + body.fore) - 1e-6);
+    expect(elbow.distanceTo(body.right)).toBeCloseTo(body.upper, 5);
+  });
+
+  it("keeps the elbow out to the side and in front of the shoulder line when a hand crosses the body", () => {
+    const t = new Timeline({ id: "x", keys: [{ t: 0, R: { at: "chest_opp", elbow: "in" } }, { t: 0.5 }] });
+    const a = arm(t.pose(0.6), R, body);
+    const { elbow } = solveArm(body.right, a.wrist, a.pole, body.upper, body.fore);
+    expect(elbow.x).toBeLessThan(body.right.x);
+    expect(elbow.z).toBeGreaterThan(body.right.z);
   });
 
   it("pulls an out-of-reach wrist back to arm length", () => {
@@ -73,6 +94,18 @@ describe("solveArm", () => {
   });
 });
 
+describe("splitTwist", () => {
+  it("gives the forearm the turn about its length and leaves the wrist only a bend", () => {
+    const axis = new Vector3(1, 0, 0);
+    const turn = new Quaternion().setFromAxisAngle(axis, 1.2);
+    const bend = new Quaternion().setFromAxisAngle(new Vector3(0, 0, 1), 0.4);
+    const { twist, swing } = splitTwist(turn.clone().multiply(bend), axis);
+    expect(twist.angleTo(turn)).toBeLessThan(1e-6);
+    expect(swing.angleTo(bend)).toBeLessThan(1e-6);
+    expect(twist.clone().multiply(swing).angleTo(turn.clone().multiply(bend))).toBeLessThan(1e-6);
+  });
+});
+
 describe("handTurn", () => {
   const fingers = (q: ReturnType<typeof handTurn>, side: 1 | -1) => new Vector3(side, 0, 0).applyQuaternion(q);
   const palm = (q: ReturnType<typeof handTurn>) => new Vector3(0, -1, 0).applyQuaternion(q);
@@ -82,12 +115,12 @@ describe("handTurn", () => {
     for (const side of [R, L]) {
       const q = handTurn(hand({ angle: 0, roll: 1 }), side, up);
       expect(fingers(q, side).y).toBeGreaterThan(0.9);
-      expect(palm(q).z).toBeGreaterThan(0.95);
+      expect(palm(q).z).toBeGreaterThan(0.9);
     }
   });
 
   it("shows the back of the hand at roll -1 and turns the palms to each other, thumbs to the body, at roll 0", () => {
-    expect(palm(handTurn(hand({ angle: 0, roll: -1 }), R, up)).z).toBeLessThan(-0.95);
+    expect(palm(handTurn(hand({ angle: 0, roll: -1 }), R, up)).z).toBeLessThan(-0.9);
     expect(palm(handTurn(hand({ angle: 0, roll: 0 }), R, up)).x).toBeGreaterThan(0.95);
     expect(palm(handTurn(hand({ angle: 0, roll: 0 }), L, up)).x).toBeLessThan(-0.95);
     for (const side of [R, L]) {
