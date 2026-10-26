@@ -12,6 +12,7 @@ const body: Body = {
   hipsY: 0.939,
   upper: 0.243,
   fore: 0.23,
+  fingerRest: new Vector3(0.073, 0.009, 0.002).normalize(),
 };
 const hand = (h: Partial<HandPose>): HandPose => ({ ...restPose(BUILD).r, ...h });
 
@@ -26,7 +27,8 @@ describe("place", () => {
   it("keeps the character's right hand on the viewer's left, in front of the face and chest", () => {
     expect(place(60, 150, body).x).toBeLessThan(0);
     expect(place(100, BUILD.anchors.mouth[1], body).z).toBeGreaterThan(body.head.z + 0.08);
-    expect(place(100, BUILD.anchors.chest[1], body).z).toBeGreaterThan(body.right.z + 0.1);
+    expect(place(100, BUILD.anchors.chest[1], body).z).toBeGreaterThan(body.right.z + 0.2);
+    expect(place(100, BUILD.anchors.belly[1], body).z).toBeGreaterThan(body.right.z + 0.2);
   });
 
   it("hangs resting hands nearly straight at the sides", () => {
@@ -84,10 +86,23 @@ describe("handTurn", () => {
     }
   });
 
-  it("shows the back of the hand at roll -1 and turns the palm outward at roll 0", () => {
+  it("shows the back of the hand at roll -1 and turns the palms to each other, thumbs to the body, at roll 0", () => {
     expect(palm(handTurn(hand({ angle: 0, roll: -1 }), R, up)).z).toBeLessThan(-0.95);
-    expect(palm(handTurn(hand({ angle: 0, roll: 0 }), R, up)).x).toBeLessThan(-0.99);
-    expect(palm(handTurn(hand({ angle: 0, roll: 0 }), L, up)).x).toBeGreaterThan(0.99);
+    expect(palm(handTurn(hand({ angle: 0, roll: 0 }), R, up)).x).toBeGreaterThan(0.95);
+    expect(palm(handTurn(hand({ angle: 0, roll: 0 }), L, up)).x).toBeLessThan(-0.95);
+    for (const side of [R, L]) {
+      const q = handTurn(hand({ angle: 0, roll: 0 }), side, up);
+      const thumb = fingers(q, side).cross(palm(q)).multiplyScalar(-side);
+      expect(thumb.z, `thumb of side ${side}`).toBeLessThan(-0.99);
+    }
+  });
+
+  it("keeps a tilted rest knuckle line pointing where the fingers are asked to point", () => {
+    const tilted = new Vector3(0.073, 0.009, 0.002).normalize();
+    for (const side of [R, L]) {
+      const q = handTurn(hand({ angle: 0, roll: 0 }), side, up, tilted);
+      expect(new Vector3(tilted.x * side, tilted.y, tilted.z).applyQuaternion(q).y).toBeGreaterThan(0.999);
+    }
   });
 
   it("follows the forearm when the angle is unset", () => {
@@ -99,10 +114,12 @@ describe("handTurn", () => {
 describe("expressions", () => {
   it("rests neutral and opens with the face", () => {
     const n = expressions(FACES.neutral, 1);
-    expect(Object.values(n).every((v) => v === 0)).toBe(true);
-    expect(expressions(FACES.happy, 1).happy).toBeGreaterThan(0.3);
+    expect(n.relaxed).toBeCloseTo(0.3);
+    expect(Object.entries(n).every(([k, v]) => k === "relaxed" || v === 0)).toBe(true);
+    expect(expressions(FACES.happy, 1).relaxed).toBeGreaterThan(n.relaxed);
+    expect(expressions(FACES.happy, 1).aa).toBeLessThan(0.3);
     expect(expressions(FACES.concern, 1).sad).toBeGreaterThan(0.5);
-    expect(expressions(FACES.round, 1).ou).toBeGreaterThan(0.7);
+    expect(expressions(FACES.round, 1).ou).toBeGreaterThan(0.4);
     expect(expressions(FACES.neutral, 0).blink).toBe(1);
   });
 

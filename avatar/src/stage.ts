@@ -62,8 +62,10 @@ export class AvatarStage {
     const loader = new GLTFLoader();
     loader.register((parser) => new VRMLoaderPlugin(parser));
     const vrm = (await loader.loadAsync(url)).userData.vrm as VRM;
-    // Flatter bust depth gives the arms clearance across the chest.
+    // Flatter bust depth gives the arms clearance across the chest, and the bust takes no spring motion.
     for (const name of ["J_Sec_L_Bust1", "J_Sec_R_Bust1"]) vrm.scene.getObjectByName(name)?.scale.set(0.7, 0.7, 0.45);
+    const springs = vrm.springBoneManager;
+    for (const joint of springs?.joints ?? []) if (/Bust/i.test(joint.bone.name)) springs!.deleteJoint(joint);
     vrm.scene.traverse((o) => (o.frustumCulled = false));
     this.scene.add(vrm.scene);
     this.vrm = vrm;
@@ -187,7 +189,7 @@ export class AvatarStage {
       const upperWorld = aim(upper, armRest(side), elbow.clone().sub(s));
       const lowerWorld = aim(lower, armRest(side), wrist.clone().sub(elbow), upperWorld);
       const h = side === R ? p.r : p.l;
-      const turn = handTurn(h, side, wrist.clone().sub(elbow).applyQuaternion(turnChest.clone().invert()));
+      const turn = handTurn(h, side, wrist.clone().sub(elbow).applyQuaternion(turnChest.clone().invert()), body.fingerRest);
       hand.quaternion.copy(lowerWorld.invert().multiply(turnChest.clone().multiply(turn)));
       for (const [name, [x, y, z]] of Object.entries(fingerAngles(h.shape, side))) {
         bone(`${prefix}${name}`)?.rotation.set(x, y, z, name.endsWith("Proximal") && !name.startsWith("Thumb") ? "YZX" : "XYZ");
@@ -242,6 +244,7 @@ function measure(vrm: VRM): MeasuredBody {
     hipsY: at("hips")!.y,
     upper: right.distanceTo(at("rightLowerArm")!),
     fore: at("rightLowerArm")!.distanceTo(at("rightHand")!),
+    fingerRest: at("leftMiddleProximal")!.sub(at("leftHand")!).normalize(),
     chestRestInverse: chest.matrixWorld.clone().invert(),
   };
 }
