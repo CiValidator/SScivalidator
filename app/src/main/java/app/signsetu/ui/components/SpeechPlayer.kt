@@ -19,16 +19,12 @@ class SpeechPlayer(private val context: Context, private val intact: (String) ->
         )
     }
 
-    /** The officer's voice choice in Settings. */
-    var natural: Boolean = true
-
     /** [path] is relative to the content bundle, e.g. `audio/hi/n1.ogg`. */
     fun play(path: String, speed: Float = 1f) {
-        val chosen = voiced(path, natural, intact)
         // A recording that fails its manifest check is never played.
-        if (!intact(chosen)) return
+        if (!intact(path)) return
         player.setPlaybackSpeed(speed)
-        player.setMediaItem(MediaItem.fromUri("asset:///content/$chosen"))
+        player.setMediaItem(MediaItem.fromUri("asset:///content/$path"))
         player.prepare()
         player.play()
     }
@@ -55,16 +51,8 @@ fun rememberSpeechPlayer(): SpeechPlayer {
     val context = LocalContext.current.applicationContext
     val repo = LocalContentRepository.current
     val player = remember { SpeechPlayer(context, repo::intact) }
-    player.natural = LocalNaturalVoice.current
     DisposableEffect(player) { onDispose { player.release() } }
     return player
-}
-
-/** The chosen voice's recording of a Parler [path], else the other voice's where only that one [has] it. */
-fun voiced(path: String, natural: Boolean, has: (String) -> Boolean): String {
-    val twin = "audio-natural/${path.removePrefix("audio/")}"
-    val (first, second) = if (natural) twin to path else path to twin
-    return first.takeIf(has) ?: second.takeIf(has) ?: path
 }
 
 private const val SPOKEN = "spoken.mp3"

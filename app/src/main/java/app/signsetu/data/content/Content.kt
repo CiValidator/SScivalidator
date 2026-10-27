@@ -199,8 +199,7 @@ data class ContentBundle(
         chain("${phrase.id}:${slot.card}", phrase.signs.mapNotNull { (if (it == Phrase.SLOT) slot.sign else it)?.let(gestures::get) })
             .takeIf { it.keys.isNotEmpty() }
 
-    // Either voice is enough: the player picks between them (SpeechPlayer.voiced).
-    private fun audio(path: String) = path.takeIf { it in files || "audio-natural/${it.removePrefix("audio/")}" in files }
+    private fun audio(path: String) = path.takeIf { it in files }
     fun questionAudio(questionId: String, lang: String) = audio("audio/$lang/$questionId.ogg")
     fun greetingAudio(lang: String) = audio("audio/greet/$lang.ogg")
     fun subjectAudio(key: String, lang: String) = audio("audio/$lang/$key.ogg")

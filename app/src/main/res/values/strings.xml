@@ -255,8 +255,6 @@ A report leaves the phone only when you export and share it, protected by a pass
     <string name="cloud_notice_custom">Custom API endpoint</string>
     <string name="settings_isl_reorder">Sign in ISL order</string>
     <string name="settings_isl_reorder_summary">Typed sentences are reordered into ISL grammar, time first and the question word last, before the character signs them. Off: words are signed exactly as typed.</string>
-    <string name="settings_natural_voice">Natural voice</string>
-    <string name="settings_natural_voice_summary">Plays smoother recorded speech in English, Hindi, Chhattisgarhi, Bengali, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati and Punjabi. Off, or in any other language, the original recordings play.</string>
     <string name="settings_lang_system">Same as the phone</string>
     <string name="lang_english">English</string>
     <string name="lang_hindi">हिन्दी</string>

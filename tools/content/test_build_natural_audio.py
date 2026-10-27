@@ -18,9 +18,9 @@ class NaturalAudioTest(unittest.TestCase):
         for code in ("as", "ne", "or", "ur", "gon", "hlb"):
             self.assertIsNone(natural.provider(code))
 
-    def test_a_natural_recording_mirrors_its_parler_path(self):
-        parler = natural.ASSETS / "audio" / "ta" / "s1.ogg"
-        self.assertEqual(natural.ASSETS / "audio-natural" / "ta" / "s1.ogg", natural.natural_path(parler))
+    def test_each_language_has_one_voice(self):
+        voiced_here = {c for c in natural.CARTESIA_VOICES} | natural.ELEVENLABS
+        self.assertEqual(voiced_here, natural.NATURAL_ONLY)
 
 
 if __name__ == "__main__":

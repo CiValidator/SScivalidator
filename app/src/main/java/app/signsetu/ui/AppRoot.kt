@@ -102,7 +102,6 @@ import app.signsetu.data.content.forSignLanguage
 import app.signsetu.ui.session.signLanguage
 import app.signsetu.data.session.SessionRepository
 import app.signsetu.ui.components.LocalContentRepository
-import app.signsetu.ui.components.LocalNaturalVoice
 import app.signsetu.ui.session.Mode
 import app.signsetu.ui.session.Conv
 import app.signsetu.ui.session.OfficerPane
@@ -182,7 +181,7 @@ fun AppRoot(container: AppContainer) {
         onDispose {}
     }
 
-    CompositionLocalProvider(LocalContentRepository provides container.content, LocalCloudAi provides container.cloudAi, LocalMotion provides motionOn, LocalNaturalVoice provides (settings?.naturalVoice ?: true)) { NoPersonalisedLearning {
+    CompositionLocalProvider(LocalContentRepository provides container.content, LocalCloudAi provides container.cloudAi, LocalMotion provides motionOn) { NoPersonalisedLearning {
         SignSetuTheme(dark = dark, theme = settings?.colorTheme ?: ColorTheme.EMERALD, amoled = settings?.amoled == true) {
             val r = repo
             val c = content

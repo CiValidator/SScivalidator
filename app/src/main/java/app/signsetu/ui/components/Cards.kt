@@ -57,7 +57,6 @@ import app.signsetu.ui.theme.SubjectCardMin
 
 val LocalCloudAi = staticCompositionLocalOf<app.signsetu.assistant.CloudAi> { error("CloudAi not provided") }
 val LocalContentRepository = staticCompositionLocalOf<ContentRepository> { error("ContentRepository not provided") }
-val LocalNaturalVoice = staticCompositionLocalOf { true }
 
 @Composable
 fun CardImage(cardId: String, modifier: Modifier = Modifier) {

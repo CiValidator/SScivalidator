@@ -1,6 +1,6 @@
-"""The "Natural" voice set: every recording build_audio.py makes, from ElevenLabs (English, Hindi) and Cartesia (the
-other languages it supports), written to audio-natural/ beside audio/. The app plays the Parler recording for anything
-missing here, so a run stopped by a used-up quota still ships. Needs ELEVENLABS_API_KEY and CARTESIA_API_KEY.
+"""Speech for the languages ElevenLabs (English, Hindi) and Cartesia (the others it supports) voice better than Indic
+Parler-TTS; build_audio.py leaves those languages to this script. One voice per language, written to audio/. Resumes
+where it stopped. Needs ELEVENLABS_API_KEY and CARTESIA_API_KEY.
 
     python tools/content/build_natural_audio.py
     python tools/content/build_content.py --manifest-only
@@ -17,7 +17,7 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from build_audio import ASSETS, OUT_RATE, jobs, trim  # noqa: E402
+from build_audio import ASSETS, NATURAL_ONLY, OUT_RATE, jobs, trim  # noqa: E402
 
 ELEVENLABS = {"en", "hi"}
 ELEVENLABS_VOICE = "EXAVITQu4vr4xnSDxMaL"
@@ -39,10 +39,6 @@ def provider(code: str) -> str | None:
     if code in ELEVENLABS:
         return "elevenlabs"
     return "cartesia" if code in CARTESIA_VOICES else None
-
-
-def natural_path(parler: pathlib.Path) -> pathlib.Path:
-    return ASSETS / "audio-natural" / parler.relative_to(ASSETS / "audio")
 
 
 def post(url: str, headers: dict, body: dict) -> bytes:
@@ -74,9 +70,8 @@ def speak(code: str, text: str) -> np.ndarray:
 def main() -> None:
     spent: set[str] = set()
     made = 0
-    for code, text, parler in jobs():
+    for code, text, out in jobs():
         name = provider(code)
-        out = natural_path(parler)
         if name is None or name in spent or out.exists():
             continue
         try:

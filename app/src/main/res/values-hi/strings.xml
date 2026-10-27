@@ -248,8 +248,6 @@
     <string name="cloud_notice_custom">कस्टम API एंडपॉइंट</string>
     <string name="settings_isl_reorder">ISL क्रम में साइन करें</string>
     <string name="settings_isl_reorder_summary">लिखे वाक्य ISL व्याकरण में बदलकर साइन होते हैं: समय पहले, प्रश्न-शब्द अंत में। बंद होने पर शब्द जैसे लिखे वैसे साइन होते हैं।</string>
-    <string name="settings_natural_voice">स्वाभाविक आवाज़</string>
-    <string name="settings_natural_voice_summary">अंग्रेज़ी, हिंदी, छत्तीसगढ़ी, बांग्ला, तमिल, तेलुगु, कन्नड़, मलयालम, मराठी, गुजराती और पंजाबी में अधिक स्वाभाविक रिकॉर्डिंग चलती है। बंद होने पर या अन्य भाषाओं में मूल रिकॉर्डिंग चलती है।</string>
     <string name="settings_lang_system">फ़ोन जैसी</string>
     <string name="lang_english">English</string>
     <string name="lang_hindi">हिन्दी</string>
