@@ -132,7 +132,7 @@ class SessionViewModel(
             val session = repo.session(sessionId).first() ?: return@launch
             // Starting a session is the officer's confirmation of its opening: the stage greets the person first,
             // or, for someone who speaks another language, lets them find it.
-            if (repo.events(sessionId).first().all { it.type == EventType.SYSTEM && (it.text in StartRows || it.text?.startsWith(SYSTEM_SIGN_LANGUAGE) == true) }) {
+            if (repo.events(sessionId).first().all { it.type == EventType.SYSTEM && (it.text in StartRows || it.text?.startsWith(SYSTEM_SIGN_LANGUAGE) == true || it.text?.startsWith(SYSTEM_SPEAKER_GENDER) == true) }) {
                 val opening = if (session.profile == Profile.OTHER_LANGUAGE) Pending.LanguageFinder
                 else Pending.GroundRules().takeIf { content.question(RuleSteps.first().key) != null }
                 opening?.let { present(it, session.subjectLang) }
@@ -529,6 +529,7 @@ class SessionViewModel(
                 }
             }
             AnswerBody.Change -> if (current) hold(null, via)
+            is AnswerBody.CameraRead -> cameraRead(body.card, body.cue)
             is AnswerBody.Text -> repo.log(sessionId, EventType.ANSWER_TEXT, EventSource.SUBJECT, ui.value?.session?.subjectLang, text = body.text.trim().take(TEXT_CAP), shownId = q, via = via)
             is AnswerBody.Drawing -> {
                 val png = remotePng(body.png)
