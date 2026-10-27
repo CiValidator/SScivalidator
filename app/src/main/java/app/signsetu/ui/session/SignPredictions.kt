@@ -74,8 +74,16 @@ internal fun rememberReading(
     val context = LocalContext.current
     val book by produceState<Phrasebook?>(null) { value = withContext(Dispatchers.IO) { loadPhrasebook(context) } }
     val question = (pending as? Pending.Ask)?.question?.id
-    val rung = remember(eventId, book) {
-        book?.let { b -> GlossLattice.of(segments, BuildConfig.VERSION_NAME).let { l -> ladder(l, b.match(l, question), b) } }
+    // Keyed on the head movement too: a nod or shake just after the window updates the reading.
+    val rung = remember(eventId, book, segments.firstOrNull()?.windowHead) {
+        book?.let { b ->
+            GlossLattice.of(segments, BuildConfig.VERSION_NAME).let { l ->
+                ladder(l, b.match(l, question), b).also { r ->
+                    // Debug builds only: the lattice and the rung, the start of docs/10's decision log.
+                    if (BuildConfig.DEBUG) android.util.Log.d("SignSetuGloss", "q=$question rung=${r::class.simpleName} lattice=${l.toJson()}")
+                }
+            }
+        }
     }
     val cloud = LocalOnlineAssistant.current
     val guesses = segments.map { it.candidates.ifEmpty { it.guesses.orEmpty() }.take(ONLINE_GUESSES) }
@@ -89,10 +97,13 @@ internal fun rememberReading(
     return Reading(rung, online)
 }
 
-/** The bundled phrasebook, once its file matches the manifest; null without it, and readings fall back to the word strip. */
+/** The bundled phrasebook, memory-mapped once its file matches the manifest (it is stored uncompressed, like every
+ * file the detection pipeline reads); null without it, and readings fall back to the word strip. */
 private fun loadPhrasebook(context: android.content.Context): Phrasebook? = runCatching {
-    verifiedAsset(context, "intents.json")!!.let { b -> Phrasebook(ByteArray(b.remaining()).also { b.duplicate().get(it) }.decodeToString()) }
-}.getOrNull()
+    verifiedAsset(context, PHRASEBOOK)!!.let { b -> Phrasebook(ByteArray(b.remaining()).also { b.duplicate().get(it) }.decodeToString()) }
+}.onFailure { if (BuildConfig.DEBUG) android.util.Log.w("SignSetuGloss", "phrasebook not loaded", it) }.getOrNull()
+
+private const val PHRASEBOOK = "intents.json"
 
 /** Guesses per sign sent online: enough to recover a misread, few enough to keep the prompt short. */
 private const val ONLINE_GUESSES = 6
@@ -110,10 +121,16 @@ internal fun SignPredictions(
     onPick: (words: List<String>, sentence: String?) -> Unit,
     modifier: Modifier = Modifier,
     reading: Reading = Reading(null, emptyList()),
+    /** A camera read (nod, point, fingers…) has no signs: its text is the one reading to accept. */
+    cameraText: String? = null,
 ) {
     val picked = remember(eventId) { mutableStateMapOf<Int, String>() }
     val guesses = segments.map { s -> s.guesses.orEmpty().take(PREDICTIONS).map { it.word } }
     val rung = reading.rung
+    if (segments.isEmpty() && cameraText != null) {
+        SuggestionChip(onClick = { onPick(listOf(cameraText), cameraText) }, label = { Text(stringResource(R.string.reading_camera, cameraText)) }, modifier = modifier.padding(horizontal = Spacing.lg))
+        return
+    }
     if (guesses.all { it.isEmpty() } && rung == null) return
     // The words the sentence stands on, one per sign, so the record keeps them beside the sentence.
     fun wordsOf(m: IntentMatch) = segments.mapIndexed { i, s -> m.fills.firstOrNull { it.token == i }?.label ?: s.word ?: "?" }

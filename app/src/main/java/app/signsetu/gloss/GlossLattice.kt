@@ -64,7 +64,10 @@ data class GlossLattice(val tokens: List<GlossToken>, val signerMeta: String? = 
             return GlossToken(
                 id, type,
                 s.frames.firstOrNull()?.timestampMs ?: 0L, s.frames.lastOrNull()?.timestampMs ?: 0L,
-                set, nonManual(s.frames),
+                set, nonManual(s.frames).let { nm ->
+                    // The window's head movement belongs to the whole answer, so every token carries it.
+                    nm.copy(headShake = maxOf(nm.headShake, if (Head.Shake in s.windowHead) 1f else 0f), headNod = maxOf(nm.headNod, if (Head.Nod in s.windowHead) 1f else 0f))
+                },
                 rejectScore = if (s.unsure || first == null) 1f else ((set.size - 1).toFloat() / (CANDIDATES - 1)).coerceIn(0f, 1f),
                 verified = first?.name?.verified ?: true,
             )

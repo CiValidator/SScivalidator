@@ -1,5 +1,6 @@
 package app.signsetu
 
+import app.signsetu.camera.Head
 import app.signsetu.gloss.Candidate
 import app.signsetu.gloss.Filled
 import app.signsetu.gloss.Gender
@@ -10,6 +11,9 @@ import app.signsetu.gloss.Phrasebook
 import app.signsetu.gloss.Rung
 import app.signsetu.gloss.TokenType
 import app.signsetu.gloss.faithful
+import app.signsetu.sign.SignGuess
+import app.signsetu.sign.SignSegment
+import app.signsetu.ui.session.captionRange
 import app.signsetu.gloss.ladder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -106,5 +110,22 @@ class GlossEngineTest {
             checked++
         }
         assertTrue(checked > 1000)
+    }
+
+    /** A shake between signs is outside every sign's frames; the window carries it to the whole answer. */
+    @Test
+    fun aShakeAnywhereInTheWindowNegatesTheAnswer() {
+        val seg = SignSegment(emptyList(), listOf(SignGuess("happy", 0.8f))).withWindowHead(setOf(Head.Shake))
+        val l = GlossLattice.of(listOf(seg))
+        assertEquals("I am not happy.", book.english(book.match(l, "e2").first()))
+    }
+
+    /** The sign plays from the English wording; the Hindi caption lights the word with the same entry. */
+    @Test
+    fun theCaptionLightsTheWordBeingSignedInTheSubjectsLanguage() {
+        val caption = "क्या आपको चोट लगी है?"
+        val hurt = shipped.words.entries.firstOrNull { (_, e) -> "चोट" in e.w }?.key
+        if (hurt != null) assertEquals("चोट", captionRange(shipped, hurt, caption)?.let { caption.substring(it) })
+        assertEquals(null, captionRange(shipped, "xyzzy", caption))
     }
 }

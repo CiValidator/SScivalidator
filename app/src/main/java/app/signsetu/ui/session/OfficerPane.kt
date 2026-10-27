@@ -370,7 +370,7 @@ fun OfficerPane(
         else if (autoConv != Conv.Off && ownText.isEmpty()) AutoPanel(vm.auto, ui, content, officerLang)
         pendingReading(ui.events)?.let { ev -> ui.signed[ev.id]?.let { segs ->
             val reading = rememberReading(ev.id, segs, ui.pending, content, subjectNames(ui.events, content, officerLang), subjectDetails(ui.events, content, officerLang))
-            SignPredictions(ev.id, segs, onPick = { words, sentence -> vm.acceptSigned(ev.id, words, sentence) }, reading = reading)
+            SignPredictions(ev.id, segs, onPick = { words, sentence -> vm.acceptSigned(ev.id, words, sentence) }, reading = reading, cameraText = ev.text)
         } }
         Dock(
             ui = ui,
