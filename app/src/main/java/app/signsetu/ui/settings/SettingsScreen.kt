@@ -160,6 +160,7 @@ fun SettingsScreen(store: SettingsStore, models: ModelStore, onBack: () -> Unit,
                 SwitchItem(R.string.settings_camera, R.string.settings_camera_summary, s.cameraEnabled) { on -> scope.launch { store.setCameraEnabled(on) } }
                 SpeedItem(s.gestureSpeed) { v -> scope.launch { store.setGestureSpeed(v) } }
                 SwitchItem(R.string.settings_isl_reorder, R.string.settings_isl_reorder_summary, s.islReorder) { on -> scope.launch { store.setIslReorder(on) } }
+                SwitchItem(R.string.settings_natural_voice, R.string.settings_natural_voice_summary, s.naturalVoice) { on -> scope.launch { store.setNaturalVoice(on) } }
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_asl_advisory)) },
                     supportingContent = { Text(stringResource(R.string.settings_asl_advisory_summary)) },

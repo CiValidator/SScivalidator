@@ -54,6 +54,8 @@ data class AppSettings(
     val colorTheme: ColorTheme = ColorTheme.EMERALD,
     /** Pure black backgrounds in dark mode, for OLED screens. */
     val amoled: Boolean = false,
+    /** Plays the ElevenLabs and Cartesia recordings where they ship; off keeps the Indic Parler-TTS ones. */
+    val naturalVoice: Boolean = true,
 ) {
     val interpreterConfigured get() = interpreterApp != InterpreterApp.NONE && interpreterContact.isNotBlank()
 
@@ -91,6 +93,7 @@ class SettingsStore(private val context: Context) {
         val themeMode = stringPreferencesKey("theme_mode")
         val colorTheme = stringPreferencesKey("color_theme")
         val amoled = booleanPreferencesKey("amoled")
+        val naturalVoice = booleanPreferencesKey("natural_voice")
     }
 
     val settings: Flow<AppSettings> = context.store.data.map { it.toSettings() }
@@ -116,6 +119,7 @@ class SettingsStore(private val context: Context) {
     suspend fun setThemeMode(mode: ThemeMode) = context.store.edit { it[Keys.themeMode] = mode.name }
     suspend fun setColorTheme(theme: ColorTheme) = context.store.edit { it[Keys.colorTheme] = theme.name }
     suspend fun setAmoled(on: Boolean) = context.store.edit { it[Keys.amoled] = on }
+    suspend fun setNaturalVoice(on: Boolean) = context.store.edit { it[Keys.naturalVoice] = on }
     suspend fun toggleFavourite(cardId: String) = context.store.edit {
         val now = it[Keys.favourites].orEmpty()
         it[Keys.favourites] = if (cardId in now) now - cardId else now + cardId
@@ -139,6 +143,7 @@ class SettingsStore(private val context: Context) {
         colorTheme = this[Keys.colorTheme]?.let { runCatching { ColorTheme.valueOf(it) }.getOrNull() } ?: ColorTheme.EMERALD,
         // The AMOLED colour theme became this switch; a phone that had it picked keeps black.
         amoled = this[Keys.amoled] ?: (this[Keys.colorTheme] == "AMOLED"),
+        naturalVoice = this[Keys.naturalVoice] ?: true,
     )
 }
 

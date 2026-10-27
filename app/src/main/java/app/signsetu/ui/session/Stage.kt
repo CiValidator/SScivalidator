@@ -48,6 +48,7 @@ import app.signsetu.sign.SignWindow
 import app.signsetu.ui.avatar.AVATAR_ASPECT
 import app.signsetu.ui.avatar.Avatar
 import app.signsetu.ui.avatar.LEAD_IN
+import app.signsetu.ui.components.LocalCloudAi
 import app.signsetu.ui.components.rememberSpeechPlayer
 import app.signsetu.ui.theme.LocalAnswerColors
 import app.signsetu.ui.theme.Spacing
@@ -147,6 +148,12 @@ fun Stage(
     val audio = speechFor(pending, content, lang)
     // Speech plays by itself only for subjects who hear and may not read; ISL users never get sound.
     LaunchedEffect(pending, lang) { if (audio != null && profile in AutoSpeech) speech.play(audio) }
+    val cloud = LocalCloudAi.current
+    // Typed text has no recording; with online help allowed, the gateway speaks it in the subject's language.
+    LaunchedEffect(pending, lang) {
+        val typed = (pending as? Pending.FreeText)?.text
+        if (audio == null && typed != null && profile in AutoSpeech) cloud.speak(typed, lang)?.let(speech::playBytes)
+    }
     LaunchedEffect(pending) { withFrameNanos { }; ShowTiming.firstFrame() }
 
     val item = describeItem(pending, content, lang)

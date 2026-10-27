@@ -4,11 +4,6 @@ import pathlib
 import sys
 
 import numpy as np
-import soundfile as sf
-import torch
-from parler_tts import ParlerTTSForConditionalGeneration
-from scipy.signal import resample_poly
-from transformers import AutoTokenizer
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "app" / "src" / "main" / "assets" / "content"
@@ -43,6 +38,13 @@ def jobs():
 
 
 def main(force: bool) -> None:
+    # Imported here so build_natural_audio.py can reuse jobs() without the model's dependencies.
+    import soundfile as sf
+    import torch
+    from parler_tts import ParlerTTSForConditionalGeneration
+    from scipy.signal import resample_poly
+    from transformers import AutoTokenizer
+
     todo = [j for j in jobs() if j[0] not in UNVOICED and (force or not j[2].exists())]
     if not todo:
         print("nothing to generate")
