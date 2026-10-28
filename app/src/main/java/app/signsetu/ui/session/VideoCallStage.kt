@@ -31,6 +31,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import app.signsetu.camera.SkeletonOverlay
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -152,8 +153,8 @@ fun VideoCallStage(
         recentReaction = Reaction.Count(reaction, n)
     }
 
-    // Stays as the officer left it for every item: turning it on once is enough for the whole session.
-    var showVictimSkeleton by StageSkeleton.on
+    // One switch with the officer's menu, kept for every item of the session.
+    var showVictimSkeleton by SkeletonOverlay.on
 
     // Left alone, the hint under the caption lights up, then a reassurance takes its place, each spoken and signed once;
     // once per quiet spell, and a touch or a signed answer starts the wait again. No yes or no signs: they read as answers.
@@ -536,10 +537,6 @@ fun VideoCallStage(
 
 /** Whether the subject's own camera picture shows the traced skeleton; kept outside the screen so it survives the
  * handover between items, where the stage is built again. */
-internal object StageSkeleton {
-    val on = mutableStateOf(false)
-}
-
 /** One idle beat: the subject line shown ("hint_answer" lights the hint) and for how long. */
 private class IdleStep(val line: String, val ms: Long)
 // Long enough for each line to be spoken and signed in full.
