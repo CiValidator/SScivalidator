@@ -233,6 +233,7 @@ class SessionViewModel(
     private val heads = ArrayDeque<Pair<Long, Head>>()
     @Volatile private var lastFrameMs = 0L
     @Volatile private var windowStartMs = 0L
+    @Volatile private var windowEndMs = Long.MIN_VALUE / 2
 
     private fun headsAround(from: Long, to: Long): Set<Head> = synchronized(heads) {
         heads.filter { (ms, _) -> ms in (from - HEAD_MARGIN_MS)..(to + HEAD_MARGIN_MS) }.map { it.second }.toSet()
@@ -286,14 +287,15 @@ class SessionViewModel(
             c.finish().forEach(::readSegment)
             reads.toList().also { reads.clear() }
         }
+        val start = windowStartMs
+        val end = lastFrameMs
+        windowEndMs = end
         viewModelScope.launch {
             pending.joinAll()
-            val start = windowStartMs
-            val end = lastFrameMs
             val segments = local.value.reading.orEmpty().map { it.withWindowHead(headsAround(start, end)) }
             val narrative = local.value.signWindow == SignWindow.NARRATIVE
             local.update { it.copy(reading = null, signWindow = null) }
-            if (segments.isEmpty()) return@launch
+            if (segments.isEmpty()) { windowEndMs = Long.MIN_VALUE / 2; return@launch }
             val words = segments.map { it.word ?: "?" }
             val id = logSigned(segments, words, EventSource.MACHINE, "en")
             DebugRecorder.window(id, (local.value.pending as? Pending.Ask)?.question?.id, segments, app.signsetu.BuildConfig.VERSION_NAME)
@@ -314,10 +316,11 @@ class SessionViewModel(
         }
     }
 
-    /** The officer's reading of a signed answer, logged beside the app's so the record shows both. */
     /** A nod, shake, thumb, point, held fingers, palm or shrug the camera read: logged as the app's reading, never as
      * the person's answer, for the officer to accept from the chat like a signed reading. */
     fun cameraRead(card: String, cue: String?) {
+        // A nod or shake in a sign window's margin is already in that reading; logged apart it would hide the reading.
+        if ((cue == "nod" || cue == "shake") && (capture != null || lastFrameMs - windowEndMs <= HEAD_MARGIN_MS)) return
         val label = content.cards[card]?.label?.get(officerLang) ?: content.subjectText(card, officerLang) ?: card
         viewModelScope.launch {
             val id = repo.log(sessionId, EventType.ANSWER_SIGNED, EventSource.MACHINE, officerLang, text = label, cardId = card, shownId = local.value.itemId, via = cue)
@@ -325,6 +328,7 @@ class SessionViewModel(
         }
     }
 
+    /** The officer's reading of a signed answer, logged beside the app's so the record shows both. */
     fun acceptSigned(eventId: Long, words: List<String>, sentence: String? = null) {
         DebugRecorder.decision(eventId, "accepted", sentence ?: words.joinToString(" "))
         // A spelled name the officer accepted is this person's: it ranks first the next time it is spelled.
