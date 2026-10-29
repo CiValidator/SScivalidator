@@ -253,6 +253,10 @@ these motions, so the check favours signs close to it.
 reader trained on the INCLUDE signers these words came from, so the read-back cannot judge this change; the
 dictionary is the reference form.
 
+Generator fixes after the review (2026-10-29), each rendered and scored against its own source, read back over 308 words. Finger curls fitted to the character's bend (`CURL_FIT`): mean finger-bend error 15.7 to 14.7 degrees. Thumb fitted the same way (`THUMB_FIT`, no 0.6 cap): thumb error 9.1 to 8.1 degrees, read back 0.331 to 0.334. Key frames refined where the player's straight, time-even move between two keys strays more than 4 rig units from the source (`refine`; 6.1 to 10.8 keys a sign, same lengths): flagged hands placed 56 to 16, path 28 to 2, shape 73 to 11 of 517 signs; read back 0.334 to 0.386 top-1, 21 to 5, p=0.0025. The 16 ISLRTC words whose clips were missing are rebuilt from the downloaded clips.
+
+B5 ASL share (2026-10-29, 18,329 ASL clips, 1 seed each, against WF soup5 on the union, n=546): natural share 15 to 6, p=0.078, INCLUDE 0.975; `asl_share` 0.5 15 to 5, p=0.041, INCLUDE 0.980; 0.25 13 to 6, p=0.17, INCLUDE 0.982.
+
 ## Reader run v4
 
 ### P. Preflight (2026-10-28): all pass
