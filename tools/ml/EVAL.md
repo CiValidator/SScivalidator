@@ -1823,3 +1823,18 @@ B5M as the app shows it (logits masked to its 314 words, scored on those words):
 
 
 B5M_s98 (B5A50F + 441 mined iSign windows, 65 words, judge WF_s2, held-out-signer face filter) rule 1 vs B5A50F_s98: new-signer 0.1026 vs 0.1007 (n=546), 5:4, p=1.0; app words 0.542 vs 0.525; INCLUDE 0.973 below the 0.979 floor. Not adopted.
+
+Hand-crop handshape model (2026-10-30, `crops.py`, `handshape.py`, 14,377 cache_v6b clips, hands seen 0.768): k-means
+handshape labels (k=48) from train signers and a small crop encoder, epoch picked on a tune split of train signers.
+Validation app-word clips: run 1 shape 0.238, word 0.076; run 2 (balanced loss) near chance; run 3 shape 0.161, word
+0.099. In every run the crops are right on 0 of the clips the installed reader misses. Not adopted.
+
+App ASL reader fine-tune (2026-10-30, `asl_tune.py`, ASL Citizen clips of 208 of its 250 words, signer split by hash,
+ASL Citizen test split never read): validation 0.845 against the shipped 0.618 (320 to 26, p=1.5e-65), but the 42
+words without ASL Citizen clips lose out (top guess on outside-vocabulary clips 0.221 to 0.025). With distillation from
+the shipped reader: 0.798 (245 to 12), 42-word share 0.148. The 42 words have no clean held-out signers, so it is not
+shipped.
+
+iSign signers (2026-10-30, 1,832 landmarked recordings, YuNet and SFace, average linkage at cosine 0.55): 44 face
+groups; 1,174 recordings near training signers, 575 near held-out signers (dropped by the mining face filter), about
+70 from new signers. More iSign landmarks add few new signers.

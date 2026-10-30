@@ -4,8 +4,8 @@
 
 The app's word reader after 0.8.2, replacing v3 ([model card](sign_reader_v3.md)). On new-signer validation it reads
 more signs right than v3 (22 clips to 6, p=0.0037) and holds the INCLUDE and Kaggle floors; the test split is closed,
-so it has no test number. Licensing: usable in this non-commercial project. Its training adds ASL Citizen landmarks
-to the v3 data; ISLRTC dictionary and RKMVU-CBE clips need written permission before any commercial or department
+so it has no test number. Licensing: its training adds ASL Citizen landmarks to the v3 data, and the ASL Citizen
+dataset terms are not yet checked; they must be before any release. ISLRTC dictionary and RKMVU-CBE clips need written permission before any commercial or department
 release (`docs/08-open-source.md`). v3 stays listed in `content/models/registry.json` as the previous reader.
 
 ## What it is
@@ -46,7 +46,9 @@ Engines: format 3 against format 1 on 400 validation windows, top word agreement
 
 ## Known failures
 
-- New signers remain hard: about half of app-word signs right on validation, one signer per source.
+- New signers remain hard: 0.10 over all 868 words and about half of app-word signs on validation, against 0.99
+  on Kaggle held-out clips. Most words come from one ISLRTC signer each; more signers per word, not more clips of
+  the same signers, is what moves this number.
 - The INCLUDE floor is met exactly, with no margin.
 - Validation holds essentially one new signer per source; gains below about 8 points cannot be resolved.
 - Calibration rests on 59 clips.
@@ -55,5 +57,6 @@ Engines: format 3 against format 1 on 400 validation windows, top word agreement
 
 - INCLUDE (CC BY 4.0), Kaggle Indian Sign Language video dataset (MIT), ISLRTC dictionary, RKMVU-CBE channel: as in
   the v3 card and `docs/08-open-source.md`.
-- ASL Citizen (Microsoft Research): training data under its dataset terms; no ASL Citizen video or landmark ships.
+- ASL Citizen (Microsoft Research): training data; its dataset terms are not yet checked. No ASL Citizen video or
+  landmark ships.
 - MediaPipe landmarker models: Apache 2.0.
