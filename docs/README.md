@@ -46,7 +46,8 @@ Sign Setu is an offline Android app that helps a police officer communicate with
 | [13-dpia.md](13-dpia.md) | Data protection impact assessment |
 | [14-attestation-and-pinning.md](14-attestation-and-pinning.md) | Certificate pinning and Key Attestation design for the gateway |
 | [15-gloss-to-text.md](15-gloss-to-text.md) | From read signs to a checked English or Hindi sentence: lattice, calibration, names, phrasebook, checker and output ladder |
-| [models/sign_reader_v3.md](models/sign_reader_v3.md) | Model card of the ISL word reader |
+| [models/sign_reader_v4.md](models/sign_reader_v4.md) | Model card of the ISL word reader |
+| [models/sign_reader_v3.md](models/sign_reader_v3.md) | Model card of the previous ISL word reader |
 | [../portal/README.md](../portal/README.md) | Reviewer portal for content sign-off |
 | [../gateway/README.md](../gateway/README.md) | Department gateway |
 | [../tools/ml/README.md](../tools/ml/README.md), [../tools/isl/README.md](../tools/isl/README.md) | Sign reader training and sign retargeting |
